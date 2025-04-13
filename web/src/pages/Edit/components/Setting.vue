@@ -3,7 +3,7 @@
     <div
       class="sidebarContent customScrollbar"
       :class="{ isDark: isDark }"
-      v-if="data"
+      v-if="configData"
     >
       <!-- 水印 -->
       <div class="row">
@@ -276,6 +276,20 @@
           >
         </div>
       </div>
+      <!-- 是否开启演示模式的填空功能 -->
+      <div class="row">
+        <div class="rowItem">
+          <el-checkbox
+            v-model="config.demonstrateConfig.openBlankMode"
+            @change="
+              value => {
+                updateOtherConfig('openBlankMode', value)
+              }
+            "
+            >{{ $t('setting.openBlankMode') }}</el-checkbox
+          >
+        </div>
+      </div>
       <!-- 配置鼠标滚轮行为 -->
       <div class="row">
         <div class="rowItem">
@@ -403,8 +417,8 @@ export default {
     Color
   },
   props: {
-    data: {
-      type: [Object, null],
+    configData: {
+      type: Object,
       default: null
     },
     mindMap: {
@@ -424,7 +438,10 @@ export default {
         enableAutoEnterTextEditWhenKeydown: true,
         imgTextMargin: 0,
         textContentMargin: 0,
-        enableInheritAncestorLineStyle: false
+        enableInheritAncestorLineStyle: false,
+        demonstrateConfig: {
+          openBlankMode: false
+        }
       },
       watermarkConfig: {
         show: false,
@@ -483,7 +500,13 @@ export default {
     // 初始化其他配置
     initConfig() {
       Object.keys(this.config).forEach(key => {
-        this.config[key] = this.mindMap.getConfig(key)
+        if (typeof this.config[key] === 'object') {
+          this.config[key] = {
+            ...(this.mindMap.getConfig(key) || {})
+          }
+        } else {
+          this.config[key] = this.mindMap.getConfig(key)
+        }
       })
     },
 
@@ -511,14 +534,24 @@ export default {
 
     // 更新其他配置
     updateOtherConfig(key, value) {
-      this.mindMap.updateConfig({
-        [key]: value
-      })
-      this.data.config = this.data.config || {}
-      this.data.config[key] = value
-      storeConfig({
-        config: this.data.config
-      })
+      if (key === 'openBlankMode') {
+        this.mindMap.updateConfig({
+          demonstrateConfig: {
+            ...(this.mindMap.getConfig('demonstrateConfig') || {}),
+            openBlankMode: value
+          }
+        })
+        if (!this.configData.demonstrateConfig) {
+          this.configData.demonstrateConfig = {}
+        }
+        this.configData.demonstrateConfig[key] = value
+      } else {
+        this.mindMap.updateConfig({
+          [key]: value
+        })
+        this.configData[key] = value
+      }
+      storeConfig(this.configData)
       if (
         [
           'alwaysShowExpandBtn',
@@ -539,13 +572,10 @@ export default {
         this.mindMap.watermark.updateWatermark({
           ...config
         })
-        this.data.config = this.data.config || {}
-        this.data.config.watermarkConfig = this.mindMap.getConfig(
+        this.configData.watermarkConfig = this.mindMap.getConfig(
           'watermarkConfig'
         )
-        storeConfig({
-          config: this.data.config
-        })
+        storeConfig(this.configData)
       }, 300)
     },
 
